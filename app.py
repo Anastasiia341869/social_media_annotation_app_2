@@ -12,7 +12,7 @@ from postgrest.exceptions import APIError
 
 
 st.set_page_config(
-    page_title="Meaning Preservation Annotation",
+    page_title="Social Media Annotation",
     page_icon="📝",
     layout="wide",
 )
