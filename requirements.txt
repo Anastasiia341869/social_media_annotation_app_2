@@ -1,0 +1,6 @@
+streamlit>=1.36
+supabase>=2.6
+postgrest>=0.16
+pandas>=2.2
+openpyxl>=3.1
+XlsxWriter>=3.2
