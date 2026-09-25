@@ -792,7 +792,7 @@ def render_post_navigation(
 
 
 def annotator_page():
-    st.title("Meaning Preservation Annotation")
+    st.title("Social Media Annotation")
     st.write("Enter your email address. Your progress is saved automatically after every decision.")
 
     posts = load_posts()
