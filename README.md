@@ -1,21 +1,57 @@
-# Social Media Annotation App — v3.3
+# Student Meaning Preservation Annotation App
 
-This version keeps the inter-annotator agreement by-post table and adds a compact visual overview table like the earlier summary table.
+This is a second Streamlit + Supabase app for students.
 
-## Dashboard changes
+## Main differences from the previous app
 
-The dashboard now shows:
+- The app uses 40 social media posts.
+- It uses the same six-step decision tree.
+- If a student chooses MAYBE, the decision tree continues instead of stopping.
+- NO still stops the annotation for that post.
+- At the end, a student can export a table containing only:
+  - the student's results;
+  - the gold standard results.
+- The gold-standard annotator is shown as `gold standard`, not as an email address.
 
-1. YES / NO / MAYBE by annotator email.
-2. Inter-annotator agreement overview:
-   - Full agreement
-   - Majority agreement
-   - No majority
-   - Not enough annotations yet
-3. Inter-annotator agreement by post, showing how many annotators chose YES, NO and MAYBE for each post.
+## GitHub files
 
-The old label `Tie` is now displayed as `No majority`.
+Upload these files to the new GitHub repository:
 
-## Update instructions
+- app.py
+- requirements.txt
+- runtime.txt
+- README.md
 
-Upload the new `app.py` to GitHub, commit the change, then reboot the Streamlit app. You do not need to change Supabase.
+Do not upload Supabase keys or passwords to GitHub.
+
+## Supabase setup
+
+In the new Supabase project, run:
+
+- supabase_clean_reset_student_app.sql
+
+This creates the required tables:
+
+- posts
+- annotation_progress
+- step_answers
+- gold_standard
+
+## Streamlit secrets
+
+In Streamlit → Manage app → Settings → Secrets:
+
+SUPABASE_URL = "https://your-new-project.supabase.co"
+SUPABASE_KEY = "your-new-supabase-key"
+ADMIN_PASSWORD = "your-admin-password"
+
+## Upload data through the app
+
+After deployment:
+
+1. Go to Researcher admin.
+2. Upload `tweets_for_students_clean.csv` in the Uploaded posts tab.
+3. Upload `gold_standard_for_students.csv` in the Gold standard tab.
+4. Test with a student email.
+
+The student export will then compare student annotations against the gold standard.
