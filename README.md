@@ -1,4 +1,4 @@
-# Meaning Preservation Annotation App — v3.3
+# Social Media Annotation App — v3.3
 
 This version keeps the inter-annotator agreement by-post table and adds a compact visual overview table like the earlier summary table.
 
