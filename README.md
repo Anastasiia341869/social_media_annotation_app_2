@@ -1,4 +1,4 @@
-# Student Meaning Preservation Annotation App
+# Social Media Annotation App
 
 This is a second Streamlit + Supabase app for students.
 
