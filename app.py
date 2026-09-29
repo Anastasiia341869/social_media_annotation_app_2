@@ -13,12 +13,12 @@ from postgrest.exceptions import APIError
 
 
 st.set_page_config(
-    page_title="Student Meaning Preservation Annotation",
+    page_title="Social Media Annotation",
     page_icon="📝",
     layout="wide",
 )
 
-APP_TITLE = "Student Meaning Preservation Annotation"
+APP_TITLE = "Social Media Annotation"
 GOLD_STANDARD_LABEL = "gold standard"
 DEFAULT_GOLD_EMAIL = "ab04237@surrey.ac.uk"
 LABELS = ["YES", "NO", "MAYBE"]
