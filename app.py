@@ -34,15 +34,15 @@ The meaning may be unclear if the post depends on missing context, such as a pre
 """,
         "options": [
             {
+                "label": "Yes: the original is understandable enough",
+                "outcome": "CONTINUE",
+                "reason": "Original understandable",
+            },
+            {
                 "label": "No: the original meaning cannot be judged confidently",
                 "outcome": "MAYBE",
                 "reason": "Context unclear",
                 "stop": True,
-            },
-            {
-                "label": "Yes: the original is understandable enough",
-                "outcome": "CONTINUE",
-                "reason": "Original understandable",
             },
         ],
     },
@@ -299,6 +299,19 @@ def load_student_steps(email: str) -> list[dict[str, Any]]:
         .order("post_id")
         .order("step_number"),
         "The app could not read saved step answers from Supabase.",
+    )
+    return response.data or []
+
+
+def load_all_step_answers() -> list[dict[str, Any]]:
+    client = get_supabase_client()
+    response = safe_execute(
+        client.table("step_answers")
+        .select("*")
+        .order("annotator_id")
+        .order("post_id")
+        .order("step_number"),
+        "The app could not read step answers from Supabase.",
     )
     return response.data or []
 
@@ -747,32 +760,173 @@ def build_student_export(email: str) -> bytes:
     return output.getvalue()
 
 
+def build_all_students_comparison_df() -> pd.DataFrame:
+    posts = pd.DataFrame(load_posts())
+    progress = pd.DataFrame(load_all_progress())
+    steps = pd.DataFrame(load_all_step_answers())
+    gold = pd.DataFrame(load_gold_standard())
+
+    if posts.empty:
+        return pd.DataFrame()
+
+    if progress.empty:
+        return pd.DataFrame(
+            columns=[
+                "Post number",
+                "post_id",
+                "original_post",
+                "simplified_post",
+                "student_email",
+                "student_final_label",
+                "gold_standard_name",
+                "gold_standard_final_label",
+                "label_match",
+            ]
+        )
+
+    if steps.empty:
+        steps = pd.DataFrame(columns=["annotator_id", "post_id", "step_number", "decision", "reason", "comment"])
+    if gold.empty:
+        gold = pd.DataFrame(columns=["post_id", "annotator_label", "final_label", "terminal_reason", "terminal_step"])
+
+    base = posts[["display_order", "post_id", "original_post", "simplified_post"]].copy()
+    base = base.rename(columns={"display_order": "Post number"})
+
+    student = progress.copy().rename(
+        columns={
+            "annotator_id": "student_email",
+            "final_label": "student_final_label",
+            "terminal_reason": "student_reason",
+            "terminal_step": "student_terminal_step",
+            "comment": "student_comment",
+        }
+    )
+    keep_student = [
+        c
+        for c in [
+            "student_email",
+            "post_id",
+            "completed",
+            "student_final_label",
+            "student_reason",
+            "student_terminal_step",
+            "student_comment",
+            "updated_at",
+        ]
+        if c in student.columns
+    ]
+    student = student[keep_student] if keep_student else pd.DataFrame(columns=["post_id", "student_email"])
+
+    out = student.merge(base, how="left", on="post_id")
+
+    all_steps = pivot_student_steps(steps)
+    if not all_steps.empty:
+        out = out.merge(all_steps, how="left", left_on=["student_email", "post_id"], right_on=["annotator_email", "post_id"])
+        out = out.drop(columns=["annotator_email"], errors="ignore")
+
+    gold = gold.rename(
+        columns={
+            "annotator_label": "gold_standard_name",
+            "final_label": "gold_standard_final_label",
+            "terminal_reason": "gold_standard_reason",
+            "terminal_step": "gold_standard_terminal_step",
+        }
+    )
+    for step in range(1, 7):
+        gold = gold.rename(
+            columns={
+                f"step_{step}_decision": f"gold_step_{step}_decision",
+                f"step_{step}_reason": f"gold_step_{step}_reason",
+            }
+        )
+
+    gold_cols = [c for c in gold.columns if c == "post_id" or c.startswith("gold_")]
+    if gold_cols:
+        out = out.merge(gold[gold_cols], how="left", on="post_id")
+
+    out["gold_standard_name"] = GOLD_STANDARD_LABEL
+    out["label_match"] = out.apply(
+        lambda r: "YES"
+        if str(r.get("student_final_label", "")).upper() == str(r.get("gold_standard_final_label", "")).upper()
+        and str(r.get("student_final_label", "")).strip()
+        else "NO",
+        axis=1,
+    )
+
+    ordered = [
+        "student_email",
+        "Post number",
+        "post_id",
+        "original_post",
+        "simplified_post",
+        "completed",
+        "student_final_label",
+        "gold_standard_name",
+        "gold_standard_final_label",
+        "label_match",
+        "student_reason",
+        "gold_standard_reason",
+        "student_terminal_step",
+        "gold_standard_terminal_step",
+        "student_comment",
+        "updated_at",
+    ]
+    for step in range(1, 7):
+        ordered.append(f"student_step_{step}_decision")
+        ordered.append(f"gold_step_{step}_decision")
+    for step in range(1, 7):
+        ordered.append(f"student_step_{step}_reason")
+        ordered.append(f"gold_step_{step}_reason")
+
+    ordered = [c for c in ordered if c in out.columns]
+    extras = [c for c in out.columns if c not in ordered]
+    return out[ordered + extras].sort_values(["student_email", "Post number"])
+
+
 def build_admin_export() -> bytes:
     posts = pd.DataFrame(load_posts())
     progress = pd.DataFrame(load_all_progress())
+    steps = pd.DataFrame(load_all_step_answers())
     gold = pd.DataFrame(load_gold_standard())
 
     if posts.empty:
         posts = pd.DataFrame(columns=["post_id", "display_order", "original_post", "simplified_post"])
     if progress.empty:
         progress = pd.DataFrame(columns=["annotator_id", "post_id", "completed", "final_label", "terminal_reason"])
+    if steps.empty:
+        steps = pd.DataFrame(columns=["annotator_id", "post_id", "step_number", "decision", "reason", "comment"])
     if gold.empty:
         gold = pd.DataFrame(columns=["post_id", "annotator_label", "final_label", "terminal_reason"])
 
     by_student = make_by_student_summary(progress)
+    all_comparison = build_all_students_comparison_df()
+    label_summary = make_label_summary(progress)
+
     output = BytesIO()
     progress_export = progress.rename(columns={"annotator_id": "student_email"})
+    steps_export = steps.rename(columns={"annotator_id": "student_email"})
 
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        posts.to_excel(writer, sheet_name="Posts", index=False)
+        by_student.to_excel(writer, sheet_name="Summary by student", index=False)
+        label_summary.to_excel(writer, sheet_name="Overall label summary", index=False)
+        all_comparison.to_excel(writer, sheet_name="All students vs gold", index=False)
         progress_export.to_excel(writer, sheet_name="Student progress", index=False)
+        steps_export.to_excel(writer, sheet_name="All step answers", index=False)
         gold.to_excel(writer, sheet_name="Gold standard", index=False)
-        by_student.to_excel(writer, sheet_name="By student", index=False)
+        posts.to_excel(writer, sheet_name="Posts", index=False)
 
         workbook = writer.book
         header = workbook.add_format({"bold": True, "bg_color": "#2F5597", "font_color": "white", "border": 1, "text_wrap": True})
         wrap = workbook.add_format({"text_wrap": True, "valign": "top"})
-        sheet_data = {"Posts": posts, "Student progress": progress_export, "Gold standard": gold, "By student": by_student}
+        sheet_data = {
+            "Summary by student": by_student,
+            "Overall label summary": label_summary,
+            "All students vs gold": all_comparison,
+            "Student progress": progress_export,
+            "All step answers": steps_export,
+            "Gold standard": gold,
+            "Posts": posts,
+        }
         for sheet_name, data in sheet_data.items():
             ws = writer.sheets[sheet_name]
             for col_num, value in enumerate(data.columns):
@@ -780,6 +934,10 @@ def build_admin_export() -> bytes:
             ws.freeze_panes(1, 0)
             ws.autofilter(0, 0, max(len(data), 1), max(len(data.columns) - 1, 0))
             ws.set_column(0, max(len(data.columns) - 1, 0), 24, wrap)
+            if sheet_name in ["All students vs gold", "Posts"]:
+                ws.set_column(3, 4, 45, wrap)
+            if sheet_name == "Posts":
+                ws.set_column(2, 3, 45, wrap)
 
     return output.getvalue()
 
@@ -1167,12 +1325,21 @@ def admin_page():
             st.rerun()
 
     with tab_export:
-        st.subheader("Export admin workbook")
-        st.write("Download posts, student progress, gold standard and by-student summary.")
+        st.subheader("Export all student results")
+        st.write(
+            "Download one Excel workbook with the summary for all students, "
+            "all student answers, and comparison with the gold standard."
+        )
+
+        progress = pd.DataFrame(load_all_progress())
+        by_student = make_by_student_summary(progress)
+        st.write("Summary by student")
+        st.dataframe(by_student, hide_index=True, use_container_width=True)
+
         st.download_button(
-            "Download admin XLSX",
+            "Download all student results XLSX",
             data=build_admin_export(),
-            file_name="student_annotation_admin_export.xlsx",
+            file_name="all_student_annotation_results.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
