@@ -2,17 +2,6 @@
 
 This is a second Streamlit + Supabase app for students.
 
-## Main differences from the previous app
-
-- The app uses 40 social media posts.
-- It uses the same six-step decision tree.
-- If a student chooses MAYBE, the decision tree continues instead of stopping.
-- NO still stops the annotation for that post.
-- At the end, a student can export a table containing only:
-  - the student's results;
-  - the gold standard results.
-- The gold-standard annotator is shown as `gold standard`, not as an email address.
-
 ## GitHub files
 
 Upload these files to the new GitHub repository:
@@ -37,13 +26,6 @@ This creates the required tables:
 - step_answers
 - gold_standard
 
-## Streamlit secrets
-
-In Streamlit → Manage app → Settings → Secrets:
-
-SUPABASE_URL = "https://your-new-project.supabase.co"
-SUPABASE_KEY = "your-new-supabase-key"
-ADMIN_PASSWORD = "your-admin-password"
 
 ## Upload data through the app
 
@@ -57,31 +39,7 @@ After deployment:
 The student export will then compare student annotations against the gold standard.
 
 
-## v1.3 fix
-
-Step 1 keeps Yes/No wording:
-- Yes: continue to Step 2.
-- No: stop this post and save final label as MAYBE: Context unclear.
-
-For Steps 2–6:
-- Yes: continue, except final Step 6 Yes saves YES.
-- Maybe: continue to the next step.
-- No: stop this post and save NO.
-
-
-## v1.4 fix
-
-Step 1 has only two visible options:
-- Yes: continue to Step 2.
-- No: stop this post and save the final label as MAYBE: Context unclear.
-
-From Step 2 onwards:
-- Yes: continue.
-- Maybe: continue.
-- No: stop this post.
-
-
-## v1.5 update
+## this version 
 
 The Researcher admin page now has a clearer Export tab.
 
