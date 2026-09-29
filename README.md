@@ -53,8 +53,3 @@ The export workbook includes:
 - Posts
 
 
-## v1.6 update
-
-The visible app name and browser tab title are now:
-
-Social Media Annotation
