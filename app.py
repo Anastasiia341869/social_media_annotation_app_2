@@ -13,12 +13,12 @@ from postgrest.exceptions import APIError
 
 
 st.set_page_config(
-    page_title="Social Media Annotation",
+    page_title="Student Meaning Preservation Annotation",
     page_icon="📝",
     layout="wide",
 )
 
-APP_TITLE = "Social Media Annotation"
+APP_TITLE = "Student Meaning Preservation Annotation"
 GOLD_STANDARD_LABEL = "gold standard"
 DEFAULT_GOLD_EMAIL = "ab04237@surrey.ac.uk"
 LABELS = ["YES", "NO", "MAYBE"]
@@ -37,6 +37,7 @@ The meaning may be unclear if the post depends on missing context, such as a pre
                 "label": "No: the original meaning cannot be judged confidently",
                 "outcome": "MAYBE",
                 "reason": "Context unclear",
+                "stop": True,
             },
             {
                 "label": "Yes: the original is understandable enough",
@@ -982,11 +983,13 @@ def annotator_page():
 
             save_step_answer(email, current_post["post_id"], current_step, selected, reason, comment)
 
-            if outcome == "NO":
-                save_progress(email, current_post["post_id"], current_step, True, "NO", reason, current_step, comment)
+            if outcome == "NO" or option.get("stop"):
+                # NO stops immediately. Step 1 "No" also stops, but its final label is MAYBE: Context unclear.
+                final_label = "NO" if outcome == "NO" else outcome
+                save_progress(email, current_post["post_id"], current_step, True, final_label, reason, current_step, comment)
                 st.session_state["current_post_index"] = find_next_unfinished_index(posts, get_progress_by_post(load_progress(email)), idx + 1)
             elif current_step < len(STEP_DEFINITIONS):
-                # Important difference from the previous app: MAYBE continues instead of stopping.
+                # MAYBE continues instead of stopping, except for Step 1 "No", which is handled above.
                 save_progress(email, current_post["post_id"], current_step + 1, False, comment=comment)
                 st.success("Saved. Moving to the next step.")
             else:
